@@ -1,14 +1,23 @@
-# Project Description: Blog App (Web + Android PWA)
+# Project Description: Portfolio + Blog (Web + Android PWA)
 
 ## Goal
 
-Ship a simple blog app as a PWA on the web (Vercel) and as an Android app via Bubblewrap/TWA. Data in a long-lived Postgres instance (Neon). Uses Docker.
+Ship a portfolio-first website with an integrated blog. The root `/` is the portfolio landing, and the blog lives under `/blog`. Ship as a PWA on the web (Vercel) and as an Android app via Bubblewrap/TWA. Blog data lives in a long-lived Postgres instance (Neon). Uses Docker.
 
 ## Core Features
 
+### Portfolio
+
+* Portfolio landing at `/` with hero, bio, skills, and CTA.
+* There can be other links such as `/projects`, `/contacts`, `/about` or `/resume`.
+* The blog (`/blog`) site will be a fully developed blogging site for anyone to write on. The blog button will be available on the portfolio.
+* Theming with MUI 6, responsive layout, and SEO/Open Graph metadata.
+
+### Blog
+
 * Account: sign up, login, logout, edit profile, delete account.
 * Posts: create, edit, delete, list, view.
-* Home: list all posts from all users (author and date).
+* Blog home at `/blog`: list all posts from all users (author and date).
 * Post fields: `title` (string), `body` (string).
 * User fields: `name`, `email`, `password` (hashed).
 * Auth: email + password with session cookies.
@@ -32,6 +41,17 @@ Ship a simple blog app as a PWA on the web (Vercel) and as an Android app via Bu
 * Stateless web tier on Vercel. Persistent state only in Postgres.
 * Sessions stored in encrypted cookies.
 * PWA with offline shell for public pages; gated content requires online auth.
+
+## Routing & Pages
+
+* Portfolio
+  * `/` — portfolio landing (hero, bio, skills, CTA) and other routes.
+* Blog
+  * `/blog` — blog index (lists posts)
+  * `/blog/login`, `/blog/register`
+  * `/blog/dashboard` — user’s posts (uses `GET /api/posts?mine=1`)
+  * `/blog/posts/new`, `/blog/posts/:id/edit`, `/blog/posts/:id`
+  * `/blog/settings` — profile and account delete
 
 ## Data Model (Prisma)
 
@@ -64,7 +84,7 @@ model Post {
 * Unique email.
 * FK `Post.authorId → User.id` with `ON DELETE CASCADE`.
 
-## API (Next.js route handlers)
+## API (Next.js route handlers) — Blog
 
 * `POST /api/auth/register` → create user.
 * `POST /api/auth/login` → issue session cookie.
@@ -283,7 +303,7 @@ Read routes are public; all write routes require auth. Input validated server-si
 
 ## PWA
 
-* Make sure the app is developed as a PWS. Ensure PWA is installable and passes Lighthouse PWA checks.
+* Make sure the app is developed as a PWA. Ensure PWA is installable and passes Lighthouse PWA checks.
 * Upload to Google Play Console. Use same signing key for updates.
 
 ## Deployment
@@ -332,15 +352,19 @@ Read routes are public; all write routes require auth. Input validated server-si
 * Users can register, login, logout.
 * Users can edit and delete their own account.
 * Users can create, edit, delete their own posts.
-* Home page lists all users’ posts.
+* Portfolio landing at `/` is the default entry point.
+* Blog index at `/blog` lists all users’ posts.
 * Ownership and auth enforced server-side.
 * Basic responsive MUI layout. No visual regressions on mobile and desktop.
 * All endpoints validated and rate-limited.
 
 ## Initial MUI Pages
 
-* `/` public list of all posts from all users (author and date).
-* `/login`, `/register`.
-* `/dashboard` user’s posts (uses `GET /api/posts?mine=1`).
-* `/posts/new`, `/posts/:id/edit`, `/posts/:id`.
-* `/settings` profile and account delete.
+* Portfolio
+  * `/` — portfolio landing (hero, bio, skills, CTA)
+* Blog
+  * `/blog` — blog index (lists posts)
+  * `/blog/login`, `/blog/register`
+  * `/blog/dashboard` — user’s posts (uses `GET /api/posts?mine=1`)
+  * `/blog/posts/new`, `/blog/posts/:id/edit`, `/blog/posts/:id`
+  * `/blog/settings` — profile and account delete

@@ -2,20 +2,17 @@
 
 ## Goal
 
-Ship a simple blog app as a PWA on the web (Vercel) and as an Android app via Bubblewrap/TWA. Data in a long-lived Postgres instance (Neon). Development in Docker.
+Ship a simple blog app as a PWA on the web (Vercel) and as an Android app via Bubblewrap/TWA. Data in a long-lived Postgres instance (Neon). Uses Docker.
 
 ## Core Features
 
 * Account: sign up, login, logout, edit profile, delete account.
 * Posts: create, edit, delete, list, view.
+* Home: list all posts from all users (author and date).
 * Post fields: `title` (string), `body` (string).
 * User fields: `name`, `email`, `password` (hashed).
 * Auth: email + password with session cookies.
 * Basic validation and access control: users can only manage their own posts and account.
-
-## Non-Goals
-
-* Rich text, media uploads, comments, roles, drafts, tags, likes. Omit until later.
 
 ## Stack
 
@@ -23,17 +20,17 @@ Ship a simple blog app as a PWA on the web (Vercel) and as an Android app via Bu
 * UI: MUI 6.
 * DB: Postgres (Neon).
 * ORM: Prisma for Postgres.
-* Auth: NextAuth Credentials provider or custom auth with secure cookies.
+* Auth: Custom email/password authentication with secure cookies.
 * Packaging: PWA + Bubblewrap → Trusted Web Activity (TWA) for Google Play.
 * Infra: Vercel for web, Neon for DB, Google Play for Android.
-* Dev: Docker for local dev environment.
+* Dev: Docker for local environment.
 
 ## Architecture
 
 * Next.js server actions/route handlers for API.
 * Prisma client for data access.
 * Stateless web tier on Vercel. Persistent state only in Postgres.
-* Sessions stored in encrypted cookies; optional DB session table for invalidation.
+* Sessions stored in encrypted cookies.
 * PWA with offline shell for public pages; gated content requires online auth.
 
 ## Data Model (Prisma)
@@ -75,27 +72,18 @@ model Post {
 * `GET /api/me` → current user profile.
 * `PATCH /api/me` → update `name` or `email`.
 * `DELETE /api/me` → delete account.
-* `GET /api/posts` → list current user’s posts; query `?author=<id>` for public listing.
+* `GET /api/posts` → public list of posts (all users by default). Optional filters: `author=<id>`, `mine=1` (auth).
 * `POST /api/posts` → create post.
 * `GET /api/posts/:id` → read post.
 * `PATCH /api/posts/:id` → update own post.
 * `DELETE /api/posts/:id` → delete own post.
 
-All write routes require auth. Input validated server-side with Zod.
+Read routes are public; all write routes require auth. Input validated server-side with Zod.
 
 ## PWA
 
-* `manifest.webmanifest`: name, icons, theme/background colors, `start_url`, `scope`, `display: standalone`.
-* Service Worker: precache app shell and static assets; network-first for API calls to avoid stale auth.
-* HTTPS required on production.
-
-## Android (Bubblewrap/TWA)
-
-1. Ensure PWA is installable and passes Lighthouse PWA checks.
-2. Set `assetlinks.json` on `https://<domain>/.well-known/assetlinks.json`.
-3. `npx @bubblewrap/cli init` → configure package id, app name, icon, signing.
-4. `bubblewrap build` → generate `.apk/.aab`.
-5. Upload to Google Play Console. Use same signing key for updates.
+* Make sure the app is developed as a PWS. Ensure PWA is installable and passes Lighthouse PWA checks.
+* Upload to Google Play Console. Use same signing key for updates.
 
 ## Deployment
 
@@ -110,15 +98,7 @@ All write routes require auth. Input validated server-side with Zod.
   * Prisma migrations applied via `prisma migrate deploy`.
 * Play Store:
 
-  * TWA build pipeline uses production domain only.
-
-## Environment Variables
-
-* `DATABASE_URL` (Neon Postgres connection string).
-* `NEXTAUTH_SECRET` (if using NextAuth).
-* `NEXTAUTH_URL` (prod and preview).
-* `SESSION_SECRET` (if using custom auth).
-* `NODE_ENV`, `VERCEL`, etc.
+  * TWA build pipeline uses the app's public domain only.
 
 ## Security
 
@@ -129,10 +109,10 @@ All write routes require auth. Input validated server-side with Zod.
 * Enforce ownership checks on post mutations and account updates.
 * Avoid storing plaintext secrets in the repo.
 
-## Docker (Dev)
+## Docker
 
 * Single container with Node LTS and `libssl` compatible with Prisma.
-* Services: Postgres via Neon, so no local DB needed. Optionally run `postgres` locally via docker-compose for offline dev.
+* Services: Postgres via Neon, so no local DB needed. Optionally run `postgres` locally via docker-compose for offline use.
 * Hot reload with `next dev`.
 * Example `Dockerfile` summary:
 
@@ -141,57 +121,25 @@ All write routes require auth. Input validated server-side with Zod.
 * Example `docker-compose.yml` summary:
 
   * `web` service build + port 3000.
-  * Optional `db` service if not using Neon in dev.
-
-## CI/CD
-
-* GitHub Actions:
-
-  * Lint, typecheck, test on PR.
-  * On push to `main`: run `prisma migrate deploy`, then Vercel deploy via token.
-* Block deploy if migrations fail.
-
-## Testing
-
-* Unit: Zod schemas, auth utilities.
-* Integration: API routes with Supertest.
-* E2E: Playwright for critical flows (register, login, CRUD posts).
-* Lighthouse PWA and performance checks.
-
-## Monitoring/Logs
-
-* Vercel logs and errors.
-* Prisma query logging in non-prod only.
-* Optional Sentry for API and client.
+  * Optional `db` service if not using Neon.
 
 ## Acceptance Criteria
 
 * Web app deploys on Vercel with working Neon DB.
 * PWA installable and passes Lighthouse installability.
-* Android TWA installs and launches to the same origin. Deep links verified via `assetlinks.json`.
+* Android TWA installs and launches to the same origin.
 * Users can register, login, logout.
 * Users can edit and delete their own account.
 * Users can create, edit, delete their own posts.
+* Home page lists all users’ posts.
 * Ownership and auth enforced server-side.
 * Basic responsive MUI layout. No visual regressions on mobile and desktop.
 * All endpoints validated and rate-limited.
-* CI tests pass on `main`. Migrations are idempotent.
 
 ## Initial MUI Pages
 
-* `/` public list of posts (author and date).
+* `/` public list of all posts from all users (author and date).
 * `/login`, `/register`.
-* `/dashboard` user’s posts.
+* `/dashboard` user’s posts (uses `GET /api/posts?mine=1`).
 * `/posts/new`, `/posts/:id/edit`, `/posts/:id`.
 * `/settings` profile and account delete.
-
-## Timeline Outline
-
-* Week 1: scaffold Next.js, Prisma schema, auth, Neon setup.
-* Week 2: CRUD UI with MUI, validation, tests.
-* Week 3: PWA hardening, Bubblewrap TWA, Play Console submission.
-* Week 4: polish, rate limiting, monitoring, docs.
-
-## README Checklist
-
-* Prereqs, env vars, local run with Docker, migration commands, deploy steps, Bubblewrap commands, Play Store notes, and rollback steps.

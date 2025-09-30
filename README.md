@@ -80,6 +80,207 @@ model Post {
 
 Read routes are public; all write routes require auth. Input validated server-side with Zod.
 
+### API Conventions
+
+- **Content-Type**: `application/json` for all request and response bodies.
+- **Auth cookie**: `session` HttpOnly cookie on successful login; sent automatically on subsequent requests.
+- **Timestamps**: ISO 8601 strings (UTC).
+- **IDs**: Prisma `cuid()` strings.
+- **Error format**:
+
+```json
+{
+  "error": {
+    "code": "string",          // machine-readable code
+    "message": "string",       // human-readable message
+    "details": { }              // optional, validation field errors, etc.
+  }
+}
+```
+
+### Schemas
+
+- **User**
+
+```json
+{
+  "id": "string",
+  "name": "string",
+  "email": "user@example.com",
+  "createdAt": "2025-01-01T12:00:00.000Z",
+  "updatedAt": "2025-01-01T12:00:00.000Z"
+}
+```
+
+- **Post**
+
+```json
+{
+  "id": "string",
+  "title": "string",
+  "body": "string",
+  "authorId": "string",
+  "createdAt": "2025-01-01T12:00:00.000Z",
+  "updatedAt": "2025-01-01T12:00:00.000Z"
+}
+```
+
+### Auth
+
+- `POST /api/auth/register`
+  - Request body:
+
+```json
+{
+  "name": "string",
+  "email": "user@example.com",
+  "password": "string"          
+}
+```
+  - Responses:
+    - 201
+
+```json
+{ "user": { /* User */ } }
+```
+    - 400 (validation)
+
+```json
+{ "error": { "code": "VALIDATION_ERROR", "message": "...", "details": { "email": "Invalid" } } }
+```
+    - 409 (email exists)
+
+```json
+{ "error": { "code": "EMAIL_IN_USE", "message": "Email already registered" } }
+```
+
+- `POST /api/auth/login`
+  - Request body:
+
+```json
+{ "email": "user@example.com", "password": "string" }
+```
+  - Responses:
+    - 200 (sets `session` cookie)
+
+```json
+{ "user": { /* User */ } }
+```
+    - 401
+
+```json
+{ "error": { "code": "INVALID_CREDENTIALS", "message": "Invalid email or password" } }
+```
+
+- `POST /api/auth/logout`
+  - Request: no body
+  - Responses:
+    - 204 (clears `session` cookie)
+    - 401 if not authenticated
+
+### Me
+
+- `GET /api/me`
+  - Request: none
+  - Responses:
+    - 200
+
+```json
+{ "user": { /* User */ } }
+```
+    - 401 if not authenticated
+
+- `PATCH /api/me`
+  - Request body (any subset):
+
+```json
+{ "name": "string", "email": "user@example.com" }
+```
+  - Responses:
+    - 200
+
+```json
+{ "user": { /* User */ } }
+```
+    - 400 (validation)
+    - 401 if not authenticated
+    - 409 if email conflicts
+
+- `DELETE /api/me`
+  - Request: none
+  - Responses:
+    - 204
+    - 401 if not authenticated
+
+### Posts
+
+- `GET /api/posts`
+  - Query parameters:
+    - `author` (string, optional): filter by author id
+    - `mine` ("1", optional): if `1`, requires auth and returns only caller's posts
+    - `limit` (integer, optional, default 20, max 100)
+    - `cursor` (string, optional): pagination cursor (post id or encoded cursor)
+  - Responses:
+    - 200
+
+```json
+{
+  "items": [ { /* Post */ } ],
+  "nextCursor": "string|null"
+}
+```
+
+- `POST /api/posts`
+  - Request body:
+
+```json
+{ "title": "string", "body": "string" }
+```
+  - Responses:
+    - 201
+
+```json
+{ "post": { /* Post */ } }
+```
+    - 400 (validation)
+    - 401 if not authenticated
+
+- `GET /api/posts/:id`
+  - Path parameters: `id` (string)
+  - Responses:
+    - 200
+
+```json
+{ "post": { /* Post */ } }
+```
+    - 404 if not found
+
+- `PATCH /api/posts/:id`
+  - Path parameters: `id` (string)
+  - Request body (any subset):
+
+```json
+{ "title": "string", "body": "string" }
+```
+  - Responses:
+    - 200
+
+```json
+{ "post": { /* Post */ } }
+```
+    - 400 (validation)
+    - 401 if not authenticated
+    - 403 if not owner
+    - 404 if not found
+
+- `DELETE /api/posts/:id`
+  - Path parameters: `id` (string)
+  - Responses:
+    - 204
+    - 401 if not authenticated
+    - 403 if not owner
+    - 404 if not found
+
 ## PWA
 
 * Make sure the app is developed as a PWS. Ensure PWA is installable and passes Lighthouse PWA checks.
